@@ -1,5 +1,5 @@
 import { Inject, Service } from 'typedi';
-import uniqid from 'uniqid';
+import crypto from 'crypto';
 import moment from 'moment';
 import config from '@/config';
 import {
@@ -32,7 +32,7 @@ export class AuthSendResetPassword {
   public async sendResetPassword(email: string): Promise<PasswordReset> {
     const user = await this.validateEmailExistance(email);
 
-    const token: string = uniqid();
+    const token = crypto.randomBytes(32).toString('hex');
 
     // Triggers sending reset password event.
     await this.eventPublisher.emitAsync(events.auth.sendingResetPassword, {
@@ -41,7 +41,7 @@ export class AuthSendResetPassword {
     } as IAuthSendingResetPassword);
 
     // Delete all stored tokens of reset password that associate to the give email.
-    this.deletePasswordResetToken(email);
+    await this.deletePasswordResetToken(email);
 
     // Creates a new password reset row with unique token.
     const passwordReset = await PasswordReset.query().insert({ email, token });

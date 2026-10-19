@@ -1,5 +1,5 @@
 require('./bootstrap.cjs');
-const { test, after } = require('node:test');
+const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const axios = require('axios');

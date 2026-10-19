@@ -1,5 +1,5 @@
 require('./bootstrap.cjs');
-const { test, before, after, beforeEach } = require('node:test');
+const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { Container } = require('typedi');
 const { Model, knexSnakeCaseMappers } = require('objection');
@@ -11,6 +11,7 @@ const { SocialAuth } = require('../../src/services/Authentication/SocialAuth');
 const { SocialAttempts } = require('../../src/services/Authentication/SocialAttempts');
 const { AuthSignupService } = require('../../src/services/Authentication/AuthSignup');
 const { AuthSigninService } = require('../../src/services/Authentication/AuthSignin');
+const { AuthSendResetPassword } = require('../../src/services/Authentication/AuthSendResetPassword');
 const { SystemUser, Tenant } = require('../../src/system/models');
 const { EventPublisher } = require('../../src/lib/EventPublisher/EventPublisher');
 const { SubscribeFreeOnSignupCommunity } = require('../../src/services/Subscription/events/SubscribeFreeOnSignupCommunity');
@@ -39,6 +40,7 @@ test('MySQL integration: identity, registration, rollback and session boundaries
     findOneByEmail: (email) => SystemUser.query().findOne('email', email),
     patchLastLoginAt: (id) => knex('users').where({ id }).update({ lastLoginAt: new Date() }),
     create: (data) => SystemUser.query().insert(data),
+    update: (data, where) => knex('users').where(where).update(data),
   };
   signup.sysRepositories = signin.sysRepositories = { systemUserRepository: repository };
   signup.eventPublisher = signin.eventPublisher = bus;
@@ -61,6 +63,7 @@ test('MySQL integration: identity, registration, rollback and session boundaries
     created = true;
     await require('../../src/system/migrations/20200420134631_create_tenants_table').up(knex);
     await require('../../src/system/migrations/20200420134633_create_users_table').up(knex);
+    await require('../../src/system/migrations/20190104195900_create_password_resets_table').up(knex);
     await knex.schema.table('users', (table) => { table.boolean('verified'); table.string('verifyToken'); });
     await require('../../src/system/migrations/20200823235340_create_tenants_metadata_table').up(knex);
     await knex.schema.createTable('subscriptionPlans', (table) => {
@@ -138,6 +141,18 @@ test('MySQL integration: identity, registration, rollback and session boundaries
       await assert.rejects(social.disconnect(user.id, 'x'), { code: 'LAST_LOGIN_METHOD' });
       await assert.rejects(social.freshUser(user.id, '', Date.now() / 1000 - 600), { code: 'REAUTHENTICATE' });
     });
+    await t.test('social-only users can establish password recovery before disconnecting their provider', async () => {
+      const user = await SystemUser.query().findOne('email', 'verified@example.com');
+      const recovery = new AuthSendResetPassword();
+      recovery.sysRepositories = { systemUserRepository: repository };
+      recovery.eventPublisher = bus;
+      const reset = await recovery.sendResetPassword(user.email);
+      assert.match(reset.token, /^[a-f0-9]{64}$/);
+      await recovery.resetPassword(reset.token, 'recovered-password');
+      await assert.rejects(recovery.resetPassword(reset.token, 'replay-password'));
+      await social.disconnect(user.id, 'x');
+      assert.equal((await signin.signIn(user.email, 'recovered-password')).user.id, user.id);
+    });
     await t.test('inactive users and pending invitations cannot log in; invitations/deleted users still collide', async () => {
       const user = await SystemUser.query().findOne('email', 'new@example.com');
       await knex('users').where({ id: user.id }).update({ active: false });
@@ -177,7 +192,7 @@ test('MySQL integration: identity, registration, rollback and session boundaries
     });
   } finally {
     if (created) {
-      for (const name of ['socialAttempts', 'socialIdentities', 'subscriptionPlanSubscriptions', 'subscriptionPlans', 'tenantsMetadata', 'users', 'tenants']) {
+      for (const name of ['socialAttempts', 'socialIdentities', 'passwordResets', 'subscriptionPlanSubscriptions', 'subscriptionPlans', 'tenantsMetadata', 'users', 'tenants']) {
         await knex.schema.dropTableIfExists(name);
       }
     }
