@@ -207,7 +207,8 @@ describe('MySQL social login integration', function () {
     });
     try {
       profile = { id: 'http-user', confirmed_email: 'http@example.com', name: 'HTTP' };
-      const start = await post('x/start', { intent: 'signup' });
+      const start = await post('test/start', { intent: 'signup' });
+      assert.equal(start.status, 200);
       browserCookie = start.headers.get('set-cookie').split(';')[0];
       const state = new URL((await start.json()).url).searchParams.get('state');
       const callback = await fetch(`${origin}/api/auth/social/test/callback?state=${state}&code=mock-code`, {
