@@ -11,16 +11,20 @@ import AuthenticationApplication from '@/services/Authentication/AuthApplication
 
 import JWTAuth from '@/api/middleware/jwtAuth';
 import AttachCurrentTenantUser from '@/api/middleware/AttachCurrentTenantUser';
+import SocialAuthentication from './SocialAuthentication';
 @Service()
 export default class AuthenticationController extends BaseController {
   @Inject()
   private authApplication: AuthenticationApplication;
+
+  @Inject() private socialAuthentication: SocialAuthentication;
 
   /**
    * Constructor method.
    */
   public router() {
     const router = Router();
+    router.use('/social', this.socialAuthentication.router());
 
     router.post(
       '/login',

@@ -4,6 +4,7 @@
   "description": "",
   "main": "src/server.ts",
   "scripts": {
+    "test:social": "node --test tests/social-login/providers.test.cjs tests/social-login/routes.test.cjs tests/social-login/database.test.cjs",
     "inspect": "cross-env NODE_PATH=./src nodemon src/server.ts",
     "clear": "rimraf build",
     "dev": "cross-env NODE_ENV=development webpack --config scripts/webpack.config.js",

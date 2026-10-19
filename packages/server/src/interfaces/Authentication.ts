@@ -49,6 +49,7 @@ export interface IAuthSigningUpEventPayload {
 }
 
 export interface IAuthSignedUpEventPayload {
+  trx?: any;
   signupDTO: IRegisterDTO;
   tenant: ITenant;
   user: ISystemUser;

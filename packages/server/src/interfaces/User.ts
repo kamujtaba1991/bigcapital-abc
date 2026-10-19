@@ -18,6 +18,7 @@ export interface ISystemUser extends Model {
   tenantId: number;
 
   inviteAcceptAt: Date;
+  inviteAcceptedAt: Date;
   lastLoginAt: Date;
   deletedAt: Date;
 

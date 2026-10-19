@@ -1,0 +1,39 @@
+name: Social login
+on:
+  pull_request:
+    paths:
+      - 'packages/server/**'
+      - '.github/workflows/social-login.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/server/**'
+      - '.github/workflows/social-login.yml'
+permissions:
+  contents: read
+jobs:
+  auth-tests:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: test-only
+          MARIADB_DATABASE: abc_social_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.0.5
+      # Existing lockfile is out of sync; don't rewrite it as part of auth work.
+      - run: pnpm install --filter @bigcapital/server --lockfile=false --ignore-scripts
+      - run: pnpm --filter @bigcapital/server test:social
+        env:
+          SOCIAL_TEST_DATABASE_URL: mysql://root:test-only@127.0.0.1:3306/abc_social_test

@@ -110,6 +110,6 @@ export default class SystemUser extends SystemModel {
    * @return {Boolean}
    */
   verifyPassword(password) {
-    return bcrypt.compareSync(password, this.password);
+    return !!this.password && typeof password === 'string' && bcrypt.compareSync(password, this.password);
   }
 }
