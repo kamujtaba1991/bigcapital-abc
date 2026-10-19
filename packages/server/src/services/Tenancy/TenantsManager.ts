@@ -45,9 +45,9 @@ export default class TenantsManagerService implements ITenantManager {
    * @param {ITenant} tenant
    * @return {Promise<ITenant>}
    */
-  public async createTenant(): Promise<ITenant> {
+  public async createTenant(trx?: any): Promise<ITenant> {
     const { tenantRepository } = this.sysRepositories;
-    const tenant = await tenantRepository.createWithUniqueOrgId();
+    const tenant = await tenantRepository.createWithUniqueOrgId(undefined, trx);
 
     return tenant;
   }

@@ -1,0 +1,58 @@
+name: Social login
+on:
+  pull_request:
+    paths:
+      - 'packages/server/**'
+      - 'packages/webapp/**'
+      - '.github/workflows/social-login.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/server/**'
+      - 'packages/webapp/**'
+      - '.github/workflows/social-login.yml'
+permissions:
+  contents: read
+concurrency:
+  group: social-login-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  auth-ui-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.0.5
+      - run: pnpm install --filter @bigcapital/webapp --no-frozen-lockfile --ignore-scripts
+      - run: pnpm --filter @bigcapital/webapp test:social
+  auth-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: test-only
+          MARIADB_DATABASE: abc_social_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.0.5
+      # Respect pinned resolutions while tolerating the existing manifest/lock mismatch.
+      - run: pnpm install --filter @bigcapital/server --no-frozen-lockfile --ignore-scripts
+      - run: pnpm --filter @bigcapital/server test:social
+        env:
+          SOCIAL_TEST_DATABASE_URL: mysql://root:test-only@127.0.0.1:3306/abc_social_test

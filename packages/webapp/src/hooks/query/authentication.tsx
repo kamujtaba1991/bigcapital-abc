@@ -17,7 +17,7 @@ import {
  * Saves the response data to cookies.
  */
 function setAuthLoginCookies(data) {
-  setCookie('token', data.token);
+  setCookie('token', data.token, 60, window.location.protocol === 'https:');
   setCookie('authenticated_user_id', data.user.id);
   setCookie('organization_id', data.tenant.organization_id);
   setCookie('tenant_id', data.tenant.id);
@@ -38,7 +38,11 @@ export const useAuthLogin = (props) => {
   const setTenantId = useSetTenantId();
   const setLocale = useSetLocale();
 
-  return useMutation((values) => apiRequest.post('auth/login', values), {
+  const mutation = props?.exchangeSocialTicket
+    ? (ticket) => apiRequest.post('auth/social/exchange', { ticket })
+    : (values) => apiRequest.post('auth/login', values);
+  return useMutation(mutation, {
+    ...props,
     select: (res) => res.data,
     onSuccess: (res) => {
       // Set authentication cookies.
@@ -55,9 +59,8 @@ export const useAuthLogin = (props) => {
           setLocale(res.data?.tenant?.metadata?.language);
         }
       });
-      props?.onSuccess && props?.onSuccess(...args);
+      props?.onSuccess && props?.onSuccess(res);
     },
-    ...props,
   });
 };
 

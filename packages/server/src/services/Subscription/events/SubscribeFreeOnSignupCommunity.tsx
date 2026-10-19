@@ -28,9 +28,10 @@ export class SubscribeFreeOnSignupCommunity {
     signupDTO,
     tenant,
     user,
+    trx,
   }: IAuthSignedUpEventPayload) {
     if (config.hostedOnBigcapitalCloud) return null;
 
-    await this.subscriptionService.newSubscribtion(tenant.id, 'free');
+    await this.subscriptionService.newSubscribtion(tenant.id, 'free', 'main', trx);
   }
 }

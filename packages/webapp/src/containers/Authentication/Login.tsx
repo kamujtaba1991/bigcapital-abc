@@ -7,6 +7,7 @@ import AuthInsider from '@/containers/Authentication/AuthInsider';
 import { useAuthLogin } from '@/hooks/query';
 
 import LoginForm from './LoginForm';
+import SocialLoginButtons from './SocialLoginButtons';
 import { LoginSchema, transformLoginErrorsToToasts } from './utils';
 import {
   AuthFooterLinks,
@@ -56,6 +57,7 @@ export default function Login() {
           onSubmit={handleSubmit}
           component={LoginForm}
         />
+        <SocialLoginButtons intent="login" />
       </AuthInsiderCard>
 
       <LoginFooterLinks />

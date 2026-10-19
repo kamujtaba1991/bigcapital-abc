@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { lazy } from 'react';
 import General from '@/containers/Preferences/General/General';
+import ConnectedAccounts from '@/containers/Preferences/ConnectedAccounts';
 import Users from '../containers/Preferences/Users/Users';
 import Roles from '../containers/Preferences/Users/Roles/RolesForm/RolesFormPage';
 import Accountant from '@/containers/Preferences/Accountant/Accountant';
@@ -20,6 +21,7 @@ import BillingPage from '@/containers/Subscriptions/BillingPage';
 const BASE_URL = '/preferences';
 
 export default [
+  { path: `${BASE_URL}/connected-accounts`, component: ConnectedAccounts, exact: true },
   {
     path: `${BASE_URL}/general`,
     component: General,

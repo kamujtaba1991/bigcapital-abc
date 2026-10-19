@@ -5,6 +5,10 @@ const BASE_URL = '/auth';
 
 export default [
   {
+    path: `${BASE_URL}/social`,
+    component: LazyLoader({ loader: () => import('@/containers/Authentication/SocialLogin') }),
+  },
+  {
     path: `${BASE_URL}/login`,
     component: LazyLoader({
       loader: () => import('@/containers/Authentication/Login'),
