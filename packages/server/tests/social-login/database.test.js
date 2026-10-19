@@ -239,7 +239,7 @@ describe('MySQL social login integration', function () {
     assert.equal((await knex('tenants')).length, before);
     assert.equal(await knex('users').where({ email: 'rollback@example.com' }).first(), undefined);
     const a = await beginProfile('concurrent', 'race@example.com');
-    const b = await beginProfile('concurrent', 'race@example.com');
+    const b = await beginProfile('concurrent-other', 'race@example.com');
     const results = await Promise.allSettled([social.complete(a.ticket, browser, values('race@example.com')),
       social.complete(b.ticket, browser, values('race@example.com'))]);
     assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
@@ -248,6 +248,14 @@ describe('MySQL social login integration', function () {
     // Existing invitation duplicates remain valid; social signup still refuses to merge them.
     await knex('users').insert({ email: 'race@example.com' });
     await assert.rejects(beginProfile('duplicate-invite', 'race@example.com'), { code: 'SIGN_IN_TO_CONNECT' });
+    const c = await beginProfile('same-identity', 'first-identity@example.com');
+    const d = await beginProfile('same-identity', 'second-identity@example.com');
+    const duplicate = await Promise.allSettled([
+      social.complete(c.ticket, browser, values('first-identity@example.com')),
+      social.complete(d.ticket, browser, values('second-identity@example.com')),
+    ]);
+    assert.equal(duplicate.filter((result) => result.status === 'fulfilled').length, 1);
+    assert.equal((await knex('tenants')).length, before + 2);
   });
   after(async () => {
     if (created) {
