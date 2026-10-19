@@ -6,6 +6,7 @@ import { JSONResponseTransformer, snakecaseResponseTransformer } from '../../src
 import AttachUser from '../../src/api/middleware/AttachCurrentTenantUser';
 import JWTAuth from '../../src/api/middleware/jwtAuth';
 import Controller from '../../src/api/controllers/SocialAuthentication';
+import asyncMiddleware from '../../src/api/middleware/asyncMiddleware';
 import express from 'express';
 import assert from 'node:assert/strict';
 import { Container } from 'typedi';
@@ -69,6 +70,7 @@ describe('MySQL social login integration', function () {
   };
   const values = (email = 'new@example.com') => ({ email, firstName: 'New', lastName: 'Person' });
   before(async () => {
+    Container.set('repositories', { systemUserRepository: repository });
     assert.equal(await knex.schema.hasTable('users'), false, 'Refuse to modify an existing users table');
     created = true;
     await (await import('../../src/system/migrations/20200420134631_create_tenants_table')).up(knex);
@@ -189,10 +191,10 @@ describe('MySQL social login integration', function () {
     const app = express(); app.use(express.json()); app.use(expressBoom());
     app.use(JSONResponseTransformer(snakecaseResponseTransformer));
     app.use('/api/auth/social', controller.router());
-    app.get('/company', JWTAuth, AttachUser, async (req, res) => {
+    app.get('/company', JWTAuth, AttachUser, asyncMiddleware(async (req, res) => {
       const tenant = await knex('tenants').where({ id: req.user.tenantId }).first();
       res.send({ userId: req.user.id, organizationId: tenant.organizationId });
-    });
+    }));
     const server = app.listen(0, '127.0.0.1');
     await new Promise((resolve) => server.once('listening', resolve));
     const origin = `http://127.0.0.1:${server.address().port}`;
@@ -200,6 +202,7 @@ describe('MySQL social login integration', function () {
     const post = (route, data) => fetch(`${origin}/api/auth/social/${route}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://finance.example', Cookie: browserCookie },
       body: JSON.stringify(data),
+      signal: AbortSignal.timeout(10000),
     });
     try {
       profile = { id: 'http-user', confirmed_email: 'http@example.com', name: 'HTTP' };

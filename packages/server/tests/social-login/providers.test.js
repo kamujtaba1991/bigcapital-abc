@@ -96,4 +96,4 @@ describe('Social providers', () => {
     assert.notEqual(providers.tokenHash(a), a);
   });
 
- });
+});
