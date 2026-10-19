@@ -5,6 +5,7 @@ import { AuthSignupService } from './AuthSignup';
 import { SocialAttempts } from './SocialAttempts';
 import { SocialAuthError, SocialProfile, randomToken, tokenHash, authorizationURL, exchangeProfile, providerConfig } from './SocialProviders';
 import Mail from '@/lib/Mail';
+import config from '@/config';
 
 @Service()
 export class SocialAuth {
@@ -19,7 +20,7 @@ export class SocialAuth {
     if (user.password) {
       const limiter: any = Container.get('rateLimiter.login');
       const rate = await limiter.get(user.email);
-      if (rate && rate.consumedPoints >= 5) throw new SocialAuthError('TRY_LATER');
+      if (rate && rate.consumedPoints >= config.throttler.login.points) throw new SocialAuthError('TRY_LATER');
       if (!user.verifyPassword(password)) {
         await limiter.hit(user.email);
         throw new SocialAuthError('REAUTHENTICATE');
