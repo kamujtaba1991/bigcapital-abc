@@ -9,6 +9,7 @@ import AuthInsider from '@/containers/Authentication/AuthInsider';
 import { useAuthLogin, useAuthRegister } from '@/hooks/query/authentication';
 
 import RegisterForm from './RegisterForm';
+import SocialLoginButtons from './SocialLoginButtons';
 import {
   RegisterSchema,
   transformRegisterErrorsToForm,
@@ -80,6 +81,7 @@ export default function RegisterUserForm() {
           onSubmit={handleSubmit}
           component={RegisterForm}
         />
+        <SocialLoginButtons intent="signup" />
       </AuthInsiderCard>
 
       <RegisterFooterLinks />

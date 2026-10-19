@@ -79,17 +79,17 @@ export default function useApiRequest() {
       },
     );
     return instance;
-  }, [token, organizationId, setGlobalErrors, setLogout]);
+  }, [token, organizationId, currentLocale, setGlobalErrors, setLogout]);
 
   return React.useMemo(
     () => ({
       http,
 
-      get(resource, params) {
+      get(resource, params = undefined) {
         return http.get(`/api/${resource}`, params);
       },
 
-      post(resource, params, config) {
+      post(resource, params, config = undefined) {
         return http.post(`/api/${resource}`, params, config);
       },
 

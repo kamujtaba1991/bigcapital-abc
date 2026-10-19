@@ -121,12 +121,16 @@
     "yup": "^0.28.1"
   },
   "scripts": {
+    "test:social": "node scripts/test-social.js --watchAll=false --runInBand --testPathPattern=social-login.test",
     "dev": "cross-env PORT=4000 craco start",
     "build": "craco build",
     "test": "node scripts/test.js",
     "storybook": "start-storybook -p 6006"
   },
   "proxy": "http://localhost:3000/",
+  "jest": {
+    "moduleNameMapper": { "^@/(.*)$": "<rootDir>/src/$1" }
+  },
   "resolutions": {
     "react-error-overlay": "6.0.9"
   },
