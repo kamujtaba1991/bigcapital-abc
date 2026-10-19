@@ -3,7 +3,7 @@ import { Button, Callout } from '@blueprintjs/core';
 import intl from 'react-intl-universal';
 import useApiRequest from '@/hooks/useRequest';
 
-export const socialProviderLabels: Record<string, string> = {};
+export const socialProviderLabels: Record<string, string> = { google: 'Google' };
 
 export function socialError(error: any) {
   const code = typeof error === 'string' ? error : error?.response?.data?.errors?.[0]?.type || error?.message;
