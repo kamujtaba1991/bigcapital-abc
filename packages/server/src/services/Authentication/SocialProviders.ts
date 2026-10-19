@@ -1,10 +1,11 @@
 import crypto from 'crypto';
 import google from './providers/Google';
+import facebook from './providers/Facebook';
 import { SocialAuthError, SocialProfile, SocialProvider } from './SocialProvider';
 export { SocialAuthError } from './SocialProvider';
 export type { SocialProfile } from './SocialProvider';
 
-export const socialProviders: Record<string, SocialProvider> = { google };
+export const socialProviders: Record<string, SocialProvider> = { google, facebook };
 export const providerNames = () => Object.keys(socialProviders);
 export const randomToken = () => crypto.randomBytes(32).toString('hex');
 export const tokenHash = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
