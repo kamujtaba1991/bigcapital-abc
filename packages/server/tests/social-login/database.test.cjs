@@ -37,6 +37,7 @@ test('MySQL integration: identity, registration, rollback and session boundaries
   const signup = new AuthSignupService();
   const signin = new AuthSigninService();
   const repository = {
+    findOneById: (id) => SystemUser.query().findById(id),
     findOneByEmail: (email) => SystemUser.query().findOne('email', email),
     patchLastLoginAt: (id) => knex('users').where({ id }).update({ lastLoginAt: new Date() }),
     create: (data) => SystemUser.query().insert(data),
@@ -49,6 +50,7 @@ test('MySQL integration: identity, registration, rollback and session boundaries
   const subscriber = new SubscribeFreeOnSignupCommunity(); subscriber.subscriptionService = new Subscription();
   subscriber.attach({ subscribe: (name, fn) => bus.emitter.on(name, fn) });
   Container.set('logger', { info() {}, error() {} });
+  Container.set('repositories', { systemUserRepository: repository });
   Container.set('mail', { sendMail: (mail, cb) => { sentMail = mail; cb(null); } });
   Container.set('rateLimiter.login', { get: async () => null, hit: async () => {}, reset: async () => {} });
   Model.knex(knex);
@@ -172,6 +174,53 @@ test('MySQL integration: identity, registration, rollback and session boundaries
       const allowed = await beginProfile('allowed', 'person@allowed.example');
       await social.complete(allowed.ticket, browser, values('person@allowed.example'));
       config.signupRestrictions = { disabled: false, allowedDomains: [], allowedEmails: [] };
+    });
+    await t.test('HTTP callback -> SQL signup -> one-use handoff -> authenticated company data', async () => {
+      const express = require('express');
+      const Controller = require('../../src/api/controllers/SocialAuthentication').default;
+      const JWTAuth = require('../../src/api/middleware/jwtAuth').default;
+      const AttachUser = require('../../src/api/middleware/AttachCurrentTenantUser').default;
+      const { JSONResponseTransformer, snakecaseResponseTransformer } = require('../../src/api/middleware/JSONResponseTransformer');
+      const controller = new Controller(); controller.social = social;
+      const app = express(); app.use(express.json()); app.use(require('express-boom')());
+      app.use(JSONResponseTransformer(snakecaseResponseTransformer));
+      app.use('/api/auth/social', controller.router());
+      app.get('/company', JWTAuth, AttachUser, async (req, res) => {
+        const tenant = await knex('tenants').where({ id: req.user.tenantId }).first();
+        res.send({ userId: req.user.id, organizationId: tenant.organizationId });
+      });
+      const server = app.listen(0, '127.0.0.1');
+      await new Promise((resolve) => server.once('listening', resolve));
+      const origin = `http://127.0.0.1:${server.address().port}`;
+      let browserCookie = '';
+      const post = (route, data) => fetch(`${origin}/api/auth/social/${route}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://finance.example', Cookie: browserCookie },
+        body: JSON.stringify(data),
+      });
+      try {
+        profile = { id: 'http-user', confirmed_email: 'http@example.com', name: 'HTTP' };
+        const start = await post('x/start', { intent: 'signup' });
+        browserCookie = start.headers.get('set-cookie').split(';')[0];
+        const state = new URL((await start.json()).url).searchParams.get('state');
+        const callback = await fetch(`${origin}/api/auth/social/x/callback?state=${state}&code=mock-code`, {
+          headers: { Cookie: browserCookie }, redirect: 'manual',
+        });
+        assert.equal(callback.status, 303);
+        const fragment = new URLSearchParams(new URL(callback.headers.get('location')).hash.slice(1));
+        assert.equal(fragment.get('registration'), 'true');
+        assert.ok(!callback.headers.get('location').includes('mock-provider-token'));
+        const pending = await (await post('profile', { ticket: fragment.get('ticket') })).json();
+        const created = await (await post('complete', { ticket: pending.ticket,
+          email: pending.email, first_name: pending.first_name, last_name: 'Person' })).json();
+        const session = await (await post('exchange', { ticket: created.ticket })).json();
+        assert.ok(session.token);
+        assert.equal(session.user.tenant_id, session.tenant.id);
+        assert.equal((await post('exchange', { ticket: created.ticket })).status, 400);
+        assert.equal((await fetch(`${origin}/company`)).status, 401);
+        const company = await (await fetch(`${origin}/company`, { headers: { 'X-Access-Token': session.token } })).json();
+        assert.equal(company.organization_id, session.tenant.organization_id);
+        assert.equal(company.user_id, session.user.id);
+      } finally { server.closeIdleConnections?.(); await new Promise((resolve) => server.close(resolve)); }
     });
     await t.test('duplicate identity or subscriber failure rolls back company, user, identity and subscription', async () => {
       const before = (await knex('tenants')).length;
