@@ -47,12 +47,12 @@ describe('MySQL social login integration', function () {
     findOneById: (id) => SystemUser.query().findById(id),
     findOneByEmail: (email) => SystemUser.query().findOne('email', email),
     patchLastLoginAt: (id) => knex('users').where({ id }).update({ lastLoginAt: new Date() }),
-    create: (data) => SystemUser.query().insert(data),
+    create: (data, trx) => SystemUser.query(trx).insert(data),
     update: (data, where) => knex('users').where(where).update(data),
   };
   signup.sysRepositories = signin.sysRepositories = { systemUserRepository: repository };
   signup.eventPublisher = signin.eventPublisher = bus;
-  signup.tenantsManager = { createTenant: () => Tenant.query().insert({ organizationId: `password-${Date.now()}` }) };
+  signup.tenantsManager = { createTenant: (trx) => Tenant.query(trx).insert({ organizationId: `test-${Date.now()}` }) };
   social.signup = signup; social.signin = signin;
   const subscriber = new SubscribeFreeOnSignupCommunity(); subscriber.subscriptionService = new Subscription();
   subscriber.attach({ subscribe: (name, fn) => bus.emitter.on(name, fn) });
@@ -241,11 +241,14 @@ describe('MySQL social login integration', function () {
       social.complete(b.ticket, browser, values('race@example.com'))]);
     assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
     assert.equal((await knex('tenants')).length, before + 1);
-    await assert.rejects(knex('users').insert({ email: ' RACE@EXAMPLE.COM ' }));
+    await assert.rejects(signup.signUp({ ...values(' RACE@EXAMPLE.COM '), password: 'test-password' }));
+    // Existing invitation duplicates remain valid; social signup still refuses to merge them.
+    await knex('users').insert({ email: 'race@example.com' });
+    await assert.rejects(beginProfile('duplicate-invite', 'race@example.com'), { code: 'SIGN_IN_TO_CONNECT' });
   });
   after(async () => {
     if (created) {
-      for (const name of ['socialAttempts', 'socialIdentities', 'passwordResets', 'subscriptionPlanSubscriptions', 'subscriptionPlans', 'tenantsMetadata', 'users', 'tenants']) {
+      for (const name of ['socialAttempts', 'socialIdentities', 'authSignupLocks', 'passwordResets', 'subscriptionPlanSubscriptions', 'subscriptionPlans', 'tenantsMetadata', 'users', 'tenants']) {
         await knex.schema.dropTableIfExists(name);
       }
     }

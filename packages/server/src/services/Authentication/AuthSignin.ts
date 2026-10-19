@@ -107,7 +107,6 @@ export class AuthSigninService {
 
     // Remove password property from user object.
     Reflect.deleteProperty(outputUser, 'password');
-    Reflect.deleteProperty(outputUser, 'emailKey');
     Reflect.deleteProperty(outputUser, 'verifyToken');
 
     return { user: outputUser, token, tenant };

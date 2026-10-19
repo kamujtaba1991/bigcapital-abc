@@ -15,8 +15,7 @@ import TenantsManagerService from '../Tenancy/TenantsManager';
 import events from '@/subscribers/events';
 import { hashPassword } from '@/utils';
 import config from '@/config';
-import { SystemUser, Tenant } from '@/system/models';
-import uniqid from 'uniqid';
+import { SystemUser } from '@/system/models';
 
 export class AuthSignupService {
   @Inject()
@@ -35,13 +34,20 @@ export class AuthSignupService {
    * @returns {Promise<ISystemUser>}
    */
   public async signUp(signupDTO: IRegisterDTO, social?: { trx: any; provider: string; subject: string }): Promise<ISystemUser> {
+    return social ? this.createUser(signupDTO, social.trx, social)
+      : SystemUser.knex().transaction((trx) => this.createUser(signupDTO, trx));
+  }
+
+  private async createUser(signupDTO: IRegisterDTO, trx: any, social?: { provider: string; subject: string }) {
     const { systemUserRepository } = this.sysRepositories;
 
     // Validates the signup disable restrictions.
     await this.validateSignupRestrictions(signupDTO.email);
 
-    // Validates the given email uniqiness.
-    await this.validateEmailUniqiness(signupDTO.email);
+    // Serialize registration without imposing global email uniqueness on company invitations.
+    const id = crypto.createHash('sha256').update(signupDTO.email.trim().toLowerCase()).digest('hex');
+    await trx('authSignupLocks').insert({ id }).onConflict('id').merge();
+    await this.validateEmailUniqiness(signupDTO.email, trx, !!social);
 
     const hashedPassword = social ? null : await hashPassword(signupDTO.password);
 
@@ -57,9 +63,7 @@ export class AuthSignupService {
       signupDTO,
     } as IAuthSigningUpEventPayload);
 
-    const tenant = social
-      ? await Tenant.query(social.trx).insert({ organizationId: uniqid() })
-      : await this.tenantsManager.createTenant();
+    const tenant = await this.tenantsManager.createTenant(trx);
     const userData = {
       ...omit(signupDTO, 'country'),
       verifyToken,
@@ -69,11 +73,9 @@ export class AuthSignupService {
       tenantId: tenant.id,
       inviteAcceptedAt,
     };
-    const registeredUser = social
-      ? await SystemUser.query(social.trx).insert(userData)
-      : await systemUserRepository.create(userData);
+    const registeredUser = await systemUserRepository.create(userData, trx);
     if (social) {
-      await social.trx('socialIdentities').insert({
+      await trx('socialIdentities').insert({
         provider: social.provider, subject: social.subject, userId: registeredUser.id,
       });
     }
@@ -82,7 +84,7 @@ export class AuthSignupService {
       signupDTO,
       tenant,
       user: registeredUser,
-      trx: social?.trx,
+      trx,
     } as IAuthSignedUpEventPayload);
 
     return registeredUser;
@@ -93,9 +95,9 @@ export class AuthSignupService {
    * @throws {ServiceErrors}
    * @param  {string} email - Email address
    */
-  private async validateEmailUniqiness(email: string) {
-    const { systemUserRepository } = this.sysRepositories;
-    const isEmailExists = await systemUserRepository.findOneByEmail(email);
+  private async validateEmailUniqiness(email: string, trx: any, includeDeleted: boolean) {
+    const query = includeDeleted ? trx('users') : SystemUser.query(trx);
+    const isEmailExists = await query.whereRaw('LOWER(TRIM(EMAIL)) = ?', [email.trim().toLowerCase()]).forUpdate().first();
 
     if (isEmailExists) {
       throw new ServiceError(ERRORS.EMAIL_EXISTS);

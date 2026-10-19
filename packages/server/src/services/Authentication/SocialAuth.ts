@@ -104,7 +104,6 @@ export class SocialAuth {
 
   private async register(profile: SocialProfile, values: any, browser: string) {
     const user = await this.knex.transaction(async (trx) => {
-      await this.checkCollision(values.email, trx);
       return this.signup.signUp(values, { trx, provider: profile.provider, subject: profile.subject });
     });
     return { ticket: await this.attempts.create('handoff', browser, { userId: user.id }) };

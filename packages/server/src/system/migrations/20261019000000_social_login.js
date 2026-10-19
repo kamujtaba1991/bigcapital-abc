@@ -1,11 +1,6 @@
 exports.up = async function (knex) {
-  // Fail without merging or deleting accounts if legacy email collisions need owner resolution.
-  const collisions = await knex('users').select(knex.raw('LOWER(TRIM(EMAIL)) AS email_key'))
-    .whereNotNull('email').groupByRaw('LOWER(TRIM(EMAIL))').havingRaw('COUNT(*) > 1').first();
-  if (collisions) throw new Error('Resolve duplicate user emails before enabling social login. No accounts were changed.');
-  await knex.schema.table('users', (table) => {
-    table.specificType('emailKey', 'varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin GENERATED ALWAYS AS (LOWER(TRIM(EMAIL))) STORED');
-    table.unique(['emailKey'], 'users_email_key_unique');
+  await knex.schema.createTable('authSignupLocks', (table) => {
+    table.string('id', 64).primary();
   });
   await knex.schema.createTable('socialIdentities', (table) => {
     table.increments();
@@ -27,8 +22,5 @@ exports.up = async function (knex) {
 exports.down = async function (knex) {
   await knex.schema.dropTableIfExists('socialAttempts');
   await knex.schema.dropTableIfExists('socialIdentities');
-  await knex.schema.table('users', (table) => {
-    table.dropUnique(['emailKey'], 'users_email_key_unique');
-    table.dropColumn('emailKey');
-  });
+  await knex.schema.dropTableIfExists('authSignupLocks');
 };
