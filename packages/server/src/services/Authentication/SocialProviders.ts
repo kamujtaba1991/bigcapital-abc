@@ -84,7 +84,9 @@ export async function exchangeProfile(provider: string, code: string, verifier: 
     profile = JWT.verify(data.id_token, cert, { algorithms: ['RS256'], audience: clientId,
       issuer: ['https://accounts.google.com', 'accounts.google.com'] });
     if (profile.nonce !== nonce || typeof profile.exp !== 'number') throw new SocialAuthError('INVALID_PROVIDER');
-    profile = { subject: profile.sub, email: profile.email, emailVerified: profile.email_verified === true,
+    const emailDomain = typeof profile.email === 'string' ? profile.email.split('@').pop()?.toLowerCase() : '';
+    const authoritative = emailDomain === 'gmail.com' || (typeof profile.hd === 'string' && profile.hd.toLowerCase() === emailDomain);
+    profile = { subject: profile.sub, email: profile.email, emailVerified: profile.email_verified === true && authoritative,
       firstName: profile.given_name, lastName: profile.family_name };
   } else if (provider === 'facebook') {
     const { data } = await http.get('https://graph.facebook.com/v26.0/oauth/access_token', {

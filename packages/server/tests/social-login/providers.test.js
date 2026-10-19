@@ -52,8 +52,15 @@ describe('Social providers', () => {
     const profile = await providers.exchangeProfile('google', 'code', 'verifier', 'nonce');
     assert.equal(profile.subject, 'google-subject');
     assert.equal(profile.email, 'person@example.com');
-    assert.equal(profile.emailVerified, true);
+    assert.equal(profile.emailVerified, false);
     assert.ok(calls[0].data.includes('code_verifier=verifier'));
+  });
+  it('Google only attests mailbox ownership for Gmail or its matching hosted domain', async () => {
+    for (const [claims, expected] of [[{ email: 'person@gmail.com' }, true],
+      [{ hd: 'example.com' }, true], [{ hd: 'different.example' }, false]]) {
+      googleResponses(googleToken(claims));
+      assert.equal((await providers.exchangeProfile('google', 'code', 'verifier', 'nonce')).emailVerified, expected);
+    }
   });
   it('Google rejects wrong nonce, audience, issuer, expiry and signature', async () => {
     for (const token of [googleToken({ nonce: 'attacker' }), googleToken({}, { audience: 'other-client' }),
