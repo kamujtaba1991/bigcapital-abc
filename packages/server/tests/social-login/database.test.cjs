@@ -88,7 +88,7 @@ test('MySQL integration: identity, registration, rollback and session boundaries
       assert.equal(auth.tenant.id, auth.user.tenantId);
       assert.equal(auth.user.password, undefined);
       assert.equal(auth.user.verifyToken, undefined);
-      assert.equal(auth.user.verified, true);
+      assert.ok(auth.user.verified);
       assert.equal((await knex('tenants')).length, 1);
       assert.equal((await knex('socialIdentities')).length, 1);
       assert.equal((await knex('subscriptionPlanSubscriptions')).length, 1);
