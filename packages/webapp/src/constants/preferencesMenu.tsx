@@ -3,6 +3,7 @@ import React from 'react';
 import { FormattedMessage as T } from '@/components';
 
 export default [
+  { text: <T id={'social.connected_accounts'} />, href: '/preferences/connected-accounts' },
   {
     text: <T id={'general'} />,
     disabled: false,

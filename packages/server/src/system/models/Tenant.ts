@@ -198,14 +198,16 @@ export default class Tenant extends BaseModel {
     planId,
     invoiceInterval,
     invoicePeriod,
-    subscriptionSlug
+    subscriptionSlug,
+    trx?: any
   ) {
     return Tenant.newSubscription(
       this.id,
       planId,
       invoiceInterval,
       invoicePeriod,
-      subscriptionSlug
+      subscriptionSlug,
+      trx
     );
   }
 
@@ -217,11 +219,12 @@ export default class Tenant extends BaseModel {
     planId: number,
     invoiceInterval: 'month' | 'year',
     invoicePeriod: number,
-    subscriptionSlug: string
+    subscriptionSlug: string,
+    trx?: any
   ) {
     const period = new SubscriptionPeriod(invoiceInterval, invoicePeriod);
 
-    return PlanSubscription.query().insert({
+    return PlanSubscription.query(trx).insert({
       tenantId,
       slug: subscriptionSlug,
       planId,

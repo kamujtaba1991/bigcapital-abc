@@ -61,8 +61,6 @@ export class AuthSigninService {
     email: string,
     password: string
   ): Promise<IAuthSignInPOJO> {
-    const { systemUserRepository } = this.sysRepositories;
-
     // Finds the user of the given email address.
     const user = await SystemUser.query()
       .findOne('email', email)
@@ -70,6 +68,16 @@ export class AuthSigninService {
 
     // Validate the given email and password.
     await this.validateSignIn(user, email, password);
+
+    return this.completeSignIn(user, password);
+  }
+
+  public async completeSignIn(user: ISystemUser, password?: string): Promise<IAuthSignInPOJO> {
+    const { systemUserRepository } = this.sysRepositories;
+    if (!user || !user.active || user.deletedAt || !user.inviteAcceptedAt) {
+      throw new ServiceError(ERRORS.USER_INACTIVE);
+    }
+    const email = user.email;
 
     // Triggers on signing-in event.
     await this.eventPublisher.emitAsync(events.auth.signingIn, {
@@ -99,6 +107,7 @@ export class AuthSigninService {
 
     // Remove password property from user object.
     Reflect.deleteProperty(outputUser, 'password');
+    Reflect.deleteProperty(outputUser, 'verifyToken');
 
     return { user: outputUser, token, tenant };
   }

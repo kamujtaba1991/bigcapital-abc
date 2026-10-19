@@ -15,6 +15,7 @@ import TenantsManagerService from '../Tenancy/TenantsManager';
 import events from '@/subscribers/events';
 import { hashPassword } from '@/utils';
 import config from '@/config';
+import { SystemUser } from '@/system/models';
 
 export class AuthSignupService {
   @Inject()
@@ -32,19 +33,26 @@ export class AuthSignupService {
    * @param {IRegisterDTO} signupDTO
    * @returns {Promise<ISystemUser>}
    */
-  public async signUp(signupDTO: IRegisterDTO): Promise<ISystemUser> {
+  public async signUp(signupDTO: IRegisterDTO, social?: { trx: any; provider: string; subject: string }): Promise<ISystemUser> {
+    return social ? this.createUser(signupDTO, social.trx, social)
+      : SystemUser.knex().transaction((trx) => this.createUser(signupDTO, trx));
+  }
+
+  private async createUser(signupDTO: IRegisterDTO, trx: any, social?: { provider: string; subject: string }) {
     const { systemUserRepository } = this.sysRepositories;
 
     // Validates the signup disable restrictions.
     await this.validateSignupRestrictions(signupDTO.email);
 
-    // Validates the given email uniqiness.
-    await this.validateEmailUniqiness(signupDTO.email);
+    // Serialize registration without imposing global email uniqueness on company invitations.
+    const id = crypto.createHash('sha256').update(signupDTO.email.trim().toLowerCase()).digest('hex');
+    await trx('authSignupLocks').insert({ id }).onConflict('id').merge();
+    await this.validateEmailUniqiness(signupDTO.email, trx, !!social);
 
-    const hashedPassword = await hashPassword(signupDTO.password);
+    const hashedPassword = social ? null : await hashPassword(signupDTO.password);
 
     const verifyTokenCrypto = crypto.randomBytes(64).toString('hex');
-    const verifiedEnabed = defaultTo(config.signupConfirmation.enabled, false);
+    const verifiedEnabed = !social && defaultTo(config.signupConfirmation.enabled, false);
     const verifyToken = verifiedEnabed ? verifyTokenCrypto : '';
     const verified = !verifiedEnabed;
 
@@ -55,8 +63,8 @@ export class AuthSignupService {
       signupDTO,
     } as IAuthSigningUpEventPayload);
 
-    const tenant = await this.tenantsManager.createTenant();
-    const registeredUser = await systemUserRepository.create({
+    const tenant = await this.tenantsManager.createTenant(trx);
+    const userData = {
       ...omit(signupDTO, 'country'),
       verifyToken,
       verified,
@@ -64,12 +72,19 @@ export class AuthSignupService {
       password: hashedPassword,
       tenantId: tenant.id,
       inviteAcceptedAt,
-    });
+    };
+    const registeredUser = await systemUserRepository.create(userData, trx);
+    if (social) {
+      await trx('socialIdentities').insert({
+        provider: social.provider, subject: social.subject, userId: registeredUser.id,
+      });
+    }
     // Triggers signed up event.
     await this.eventPublisher.emitAsync(events.auth.signUp, {
       signupDTO,
       tenant,
       user: registeredUser,
+      trx,
     } as IAuthSignedUpEventPayload);
 
     return registeredUser;
@@ -80,9 +95,9 @@ export class AuthSignupService {
    * @throws {ServiceErrors}
    * @param  {string} email - Email address
    */
-  private async validateEmailUniqiness(email: string) {
-    const { systemUserRepository } = this.sysRepositories;
-    const isEmailExists = await systemUserRepository.findOneByEmail(email);
+  private async validateEmailUniqiness(email: string, trx: any, includeDeleted: boolean) {
+    const query = includeDeleted ? trx('users') : SystemUser.query(trx);
+    const isEmailExists = await query.whereRaw('LOWER(TRIM(EMAIL)) = ?', [email.trim().toLowerCase()]).forUpdate().first();
 
     if (isEmailExists) {
       throw new ServiceError(ERRORS.EMAIL_EXISTS);
@@ -93,7 +108,7 @@ export class AuthSignupService {
    * Validate sign-up disable restrictions.
    * @param {string} email
    */
-  private async validateSignupRestrictions(email: string) {
+  public async validateSignupRestrictions(email: string) {
     // Can't continue if the signup is not disabled.
     if (!config.signupRestrictions.disabled) return;
 

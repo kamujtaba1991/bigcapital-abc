@@ -15,10 +15,11 @@ export class Subscription {
   public async newSubscribtion(
     tenantId: number,
     planSlug: string,
-    subscriptionSlug: string = 'main'
+    subscriptionSlug: string = 'main',
+    trx?: any
   ) {
-    const tenant = await Tenant.query().findById(tenantId).throwIfNotFound();
-    const plan = await Plan.query().findOne('slug', planSlug).throwIfNotFound();
+    const tenant = await Tenant.query(trx).findById(tenantId).throwIfNotFound();
+    const plan = await Plan.query(trx).findOne('slug', planSlug).throwIfNotFound();
 
     const isFree = plan.price === 0;
 
@@ -27,7 +28,7 @@ export class Subscription {
     const invoicePeriod = isFree ? Infinity : plan.invoicePeriod;
 
     const subscription = await tenant
-      .$relatedQuery('subscriptions')
+      .$relatedQuery('subscriptions', trx)
       .modify('subscriptionBySlug', subscriptionSlug)
       .first();
 
@@ -45,7 +46,8 @@ export class Subscription {
         plan.id,
         invoiceInterval,
         invoicePeriod,
-        subscriptionSlug
+        subscriptionSlug,
+        trx
       );
     }
   }

@@ -16,9 +16,9 @@ export default class TenantRepository extends SystemRepository {
    * Creates a new tenant with random organization id.
    * @return {ITenant}
    */
-  createWithUniqueOrgId(uniqId?: string): Promise<ITenant>{
+  createWithUniqueOrgId(uniqId?: string, trx?: any): Promise<ITenant>{
     const organizationId = uniqid() || uniqId;
-    return super.create({ organizationId });
+    return super.create({ organizationId }, trx);
   }
 
   /**
