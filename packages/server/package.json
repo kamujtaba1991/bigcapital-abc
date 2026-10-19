@@ -4,7 +4,7 @@
   "description": "",
   "main": "src/server.ts",
   "scripts": {
-    "test:social": "node --test tests/social-login/providers.test.cjs tests/social-login/routes.test.cjs tests/social-login/database.test.cjs",
+    "test:social": "cross-env NODE_PATH=./src TS_NODE_PROJECT=tests/social-login/tsconfig.json mocha --require ts-node/register/transpile-only --timeout 15000 tests/social-login/*.test.js",
     "inspect": "cross-env NODE_PATH=./src nodemon src/server.ts",
     "clear": "rimraf build",
     "dev": "cross-env NODE_ENV=development webpack --config scripts/webpack.config.js",
@@ -156,6 +156,7 @@
     "start-server-webpack-plugin": "^2.2.5",
     "ts-loader": "^9.4.2",
     "ts-node": "^9.0.0",
+    "tsconfig-paths": "^4.2.0",
     "tsconfig-paths-webpack-plugin": "^4.0.0",
     "typescript": "^3.9.7",
     "webpack": "^5.75.0",

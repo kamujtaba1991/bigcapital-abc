@@ -1,13 +1,13 @@
-require('./bootstrap.cjs');
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const express = require('express');
-const JWT = require('jsonwebtoken');
-const { Container } = require('typedi');
-const Controller = require('../../src/api/controllers/SocialAuthentication').default;
-const { SocialAuthError } = require('../../src/services/Authentication/SocialProviders');
+import expressBoom from 'express-boom';
+import './bootstrap';
+import assert from 'node:assert/strict';
+import express from 'express';
+import JWT from 'jsonwebtoken';
+import { Container } from 'typedi';
+import Controller from '../../src/api/controllers/SocialAuthentication';
+import { SocialAuthError } from '../../src/services/Authentication/SocialProviders';
 
-test('HTTP boundaries: origin checks, authenticated self-only linking, validation and sanitized errors', async () => {
+it('HTTP boundaries: origin checks, authenticated self-only linking, validation and sanitized errors', async () => {
   const calls = [];
   Container.set('logger', { info() {}, error() {} });
   Container.set('repositories', { systemUserRepository: { findOneById: async (id) => ({ id, active: true, password: 'hash' }) } });
@@ -21,7 +21,7 @@ test('HTTP boundaries: origin checks, authenticated self-only linking, validatio
   };
   const app = express();
   app.use(express.json());
-  app.use(require('express-boom')());
+  app.use(expressBoom());
   app.use('/api/auth/social', controller.router());
   const server = app.listen(0, '127.0.0.1');
   await new Promise((resolve) => server.once('listening', resolve));
