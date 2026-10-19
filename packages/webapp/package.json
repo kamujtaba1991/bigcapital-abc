@@ -121,7 +121,7 @@
     "yup": "^0.28.1"
   },
   "scripts": {
-    "test:social": "node scripts/test-social.js --watchAll=false --runInBand --testPathPattern=social-login.test",
+    "test:social": "node scripts/test-social.js --watchAll=false --runInBand --testPathPattern=social-login",
     "dev": "cross-env PORT=4000 craco start",
     "build": "craco build",
     "test": "node scripts/test.js",
